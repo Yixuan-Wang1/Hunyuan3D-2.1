@@ -70,6 +70,22 @@ app.add_middleware(
 )
 
 
+def request_params(request):
+    """Return request data on both Pydantic v1 and v2."""
+    if hasattr(request, "model_dump"):
+        return request.model_dump()
+    return request.dict()
+
+
+@app.get("/", tags=["status"])
+async def root():
+    return {
+        "service": "Hunyuan3D API",
+        "status": "healthy" if worker is not None else "starting",
+        "docs": "/docs",
+    }
+
+
 @app.post("/generate", tags=["generation"])
 async def generate_3d_model(request: GenerationRequest):
     """
@@ -83,8 +99,7 @@ async def generate_3d_model(request: GenerationRequest):
     """
     logger.info("Worker generating...")
     
-    # Convert Pydantic model to dict for compatibility
-    params = request.dict()
+    params = request_params(request)
     
     uid = uuid.uuid4()
     try:
@@ -132,8 +147,7 @@ async def send_generation_task(request: GenerationRequest):
     """
     logger.info("Worker send...")
     
-    # Convert Pydantic model to dict for compatibility
-    params = request.dict()
+    params = request_params(request)
     
     uid = uuid.uuid4()
     try:

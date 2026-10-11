@@ -41,8 +41,11 @@ def build_logger(logger_name, logger_filename):
     sys.stdout = sl
 
     stderr_logger = logging.getLogger("stderr")
-    stderr_logger.setLevel(logging.ERROR)
-    sl = StreamToLogger(stderr_logger, logging.ERROR)
+    # tqdm, Uvicorn and several ML libraries use stderr for normal progress
+    # output. Recording all stderr as ERROR makes successful inference look
+    # like a failure, so preserve it as informational output.
+    stderr_logger.setLevel(logging.INFO)
+    sl = StreamToLogger(stderr_logger, logging.INFO)
     sys.stderr = sl
 
     # Get logger
