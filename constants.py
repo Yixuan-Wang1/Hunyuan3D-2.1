@@ -22,7 +22,7 @@ This API server provides endpoints for generating 3D models from 2D images using
 - **3D Shape Generation**: Convert 2D images to 3D meshes
 - **Texture Generation**: Generate PBR textures for 3D models
 - **Background Removal**: Automatic background removal from input images
-- **Multiple Formats**: Support for GLB and OBJ output formats
+- **Multiple Formats**: Support for OBJ, GLB, PLY, and STL output formats
 - **Async Processing**: Background task processing with status tracking
 
 ## Usage
@@ -58,4 +58,4 @@ API_TAGS_METADATA = [
         "name": "status",
         "description": "Task status and health check endpoints. Monitor generation progress and service health.",
     },
-] 
+]

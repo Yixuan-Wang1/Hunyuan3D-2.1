@@ -76,12 +76,12 @@ Generate a 3D model from an input image.
 - `remove_background` (optional): Auto-remove background (default: true)
 - `texture` (optional): Generate textures (default: false)
 - `seed` (optional): Random seed (default: 1234)
-- `octree_resolution` (optional): Mesh resolution (default: 256)
-- `num_inference_steps` (optional): Generation steps (default: 5)
+- `octree_resolution` (optional): Mesh resolution (default: 384)
+- `num_inference_steps` (optional): Generation steps (default: 30)
 - `guidance_scale` (optional): Generation guidance (default: 5.0)
 - `num_chunks` (optional): Processing chunks (default: 8000)
 - `face_count` (optional): Max faces for textures (default: 40000)
-- `type` (optional): Output format (default: "glb")
+- `type` (optional): Output format (`obj`, `glb`, `ply`, or `stl`; default: `glb`)
 
 #### POST `/send`
 Start asynchronous 3D generation task.
@@ -245,4 +245,4 @@ To add new parameters or endpoints:
 
 ## Conclusion
 
-The enhanced API documentation provides a professional, user-friendly interface for the Hunyuan3D API. Users can now understand all parameters, test endpoints interactively, and integrate the API more easily into their applications. 
+The enhanced API documentation provides a professional, user-friendly interface for the Hunyuan3D API. Users can now understand all parameters, test endpoints interactively, and integrate the API more easily into their applications.

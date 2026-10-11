@@ -96,7 +96,12 @@ class ModelWorker:
         self.rembg = BackgroundRemover()
         
         # Initialize shape generation pipeline (matching demo.py)
-        self.pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(model_path)
+        self.pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
+            model_path,
+            subfolder=subfolder,
+            use_safetensors=False,
+            device=device,
+        )
         if self.enable_flashvdm:
             mc_algo = 'mc' if self.device in ['cpu', 'mps'] else self.mc_algo
             self.pipeline.enable_flashvdm(mc_algo=mc_algo)
@@ -110,7 +115,10 @@ class ModelWorker:
         conf.realesrgan_ckpt_path = "hy3dpaint/ckpt/RealESRGAN_x4plus.pth"
         conf.multiview_cfg_path = "hy3dpaint/cfgs/hunyuan-paint-pbr.yaml"
         conf.custom_pipeline = "hy3dpaint/hunyuanpaintpbr"
-        self.paint_pipeline = Hunyuan3DPaintPipeline(conf)
+        # Shape-only requests are the default for the segmentation UI. Load the
+        # much heavier paint pipeline lazily only when texture=True is requested.
+        self.paint_config = conf
+        self.paint_pipeline = None
         # clean cache in save_dir
         for file in os.listdir(self.save_dir):
             os.remove(os.path.join(self.save_dir, file))
@@ -161,26 +169,52 @@ class ModelWorker:
         else:
             raise ValueError("No input image provided")
 
-        # Convert to RGBA and remove background if needed
+        # Preserve an existing alpha channel. Only run background removal for
+        # opaque inputs when the caller explicitly requests it.
+        had_alpha = image.mode == "RGBA"
+        if params.get("remove_background", True) and not had_alpha:
+            image = self.rembg(image.convert("RGB"))
         image = image.convert("RGBA")
-        if image.mode == "RGB":
-            image = self.rembg(image)
 
         # Generate mesh 
         try:
-            mesh = self.pipeline(image=image)[0]
+            generator = torch.Generator(device=self.device).manual_seed(params.get("seed", 1234))
+            mesh = self.pipeline(
+                image=image,
+                num_inference_steps=params.get("num_inference_steps", 30),
+                guidance_scale=params.get("guidance_scale", 5.0),
+                generator=generator,
+                octree_resolution=params.get("octree_resolution", 384),
+                num_chunks=params.get("num_chunks", 8000),
+            )[0]
             logger.info("---Shape generation takes %s seconds ---" % (time.time() - start_time))
         except Exception as e:
             logger.error(f"Shape generation failed: {e}")
             raise ValueError(f"Failed to generate 3D mesh: {str(e)}")
 
-        # Export initial mesh without texture
-        
-        initial_save_path = os.path.join(self.save_dir, f'{str(uid)}_initial.glb')
+        output_type = params.get("type", "obj").lower()
+        supported_types = {"obj", "glb", "ply", "stl"}
+        if output_type not in supported_types:
+            raise ValueError(f"Unsupported output format: {output_type}")
+
+        # Export the geometry directly in the requested format. This mirrors
+        # shape_infer.py for the default, untextured reconstruction path.
+        initial_save_path = os.path.join(self.save_dir, f'{str(uid)}_initial.{output_type}')
         mesh.export(initial_save_path)
+
+        if not params.get("texture", False):
+            if self.low_vram_mode:
+                torch.cuda.empty_cache()
+            logger.info("---Total generation takes %s seconds ---" % (time.time() - start_time))
+            return initial_save_path, uid
+
+        if output_type != "glb":
+            raise ValueError("Textured generation currently supports only GLB output")
         
         # Generate textured mesh as obj ( as in demo )
         try:
+            if self.paint_pipeline is None:
+                self.paint_pipeline = Hunyuan3DPaintPipeline(self.paint_config)
             output_mesh_path_obj = os.path.join(self.save_dir, f'{str(uid)}_texturing.obj')
             textured_path_obj = self.paint_pipeline(
                 mesh_path=initial_save_path,
@@ -215,4 +249,4 @@ class ModelWorker:
             torch.cuda.empty_cache()
             
         logger.info("---Total generation takes %s seconds ---" % (time.time() - start_time))
-        return final_save_path, uid 
+        return final_save_path, uid

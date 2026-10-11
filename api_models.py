@@ -27,16 +27,16 @@ class GenerationRequest(BaseModel):
         le=2**32-1
     )
     octree_resolution: int = Field(
-        256,
+        384,
         description="Resolution of the octree for mesh generation",
         ge=64,
         le=512
     )
     num_inference_steps: int = Field(
-        5,
+        30,
         description="Number of inference steps for generation",
         ge=1,
-        le=20
+        le=100
     )
     guidance_scale: float = Field(
         5.0,
@@ -55,6 +55,10 @@ class GenerationRequest(BaseModel):
         description="Maximum number of faces for texture generation",
         ge=1000,
         le=100000
+    )
+    type: Literal["obj", "glb", "ply", "stl"] = Field(
+        "glb",
+        description="Output mesh format. Textured generation is only available as GLB."
     )
 
 
@@ -79,4 +83,4 @@ class StatusResponse(BaseModel):
 class HealthResponse(BaseModel):
     """Response model for health check"""
     status: str = Field(..., description="Health status")
-    worker_id: str = Field(..., description="Worker identifier") 
+    worker_id: str = Field(..., description="Worker identifier")

@@ -89,7 +89,11 @@ async def generate_3d_model(request: GenerationRequest):
     uid = uuid.uuid4()
     try:
         file_path, uid = worker.generate(uid, params)
-        return FileResponse(file_path)
+        return FileResponse(
+            file_path,
+            filename=os.path.basename(file_path),
+            media_type="application/octet-stream",
+        )
     except ValueError as e:
         traceback.print_exc()
         logger.error(f"Caught ValueError: {e}")
