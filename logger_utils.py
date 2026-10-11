@@ -51,8 +51,11 @@ def build_logger(logger_name, logger_filename):
 
     # Add a file handler for all loggers
     if handler is None:
-        os.makedirs(LOGDIR, exist_ok=True)
         filename = os.path.join(LOGDIR, logger_filename)
+        # logger_filename may include a nested cache directory such as
+        # gradio_cache/controller.log. Create that actual parent directory
+        # before TimedRotatingFileHandler opens the file.
+        os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
         handler = logging.handlers.TimedRotatingFileHandler(
             filename, when='D', utc=True, encoding='UTF-8')
         handler.setFormatter(formatter)
@@ -110,4 +113,4 @@ def pretty_print_semaphore(semaphore):
     """
     if semaphore is None:
         return "None"
-    return f"Semaphore(value={semaphore._value}, locked={semaphore.locked()})" 
+    return f"Semaphore(value={semaphore._value}, locked={semaphore.locked()})"

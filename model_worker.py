@@ -113,9 +113,6 @@ class ModelWorker:
         # Shape-only requests are the default for the segmentation UI. Load the
         # paint module itself lazily so bpy is not required at API startup.
         self.paint_pipeline = None
-        # clean cache in save_dir
-        for file in os.listdir(self.save_dir):
-            os.remove(os.path.join(self.save_dir, file))
             
     def get_queue_length(self):
         """
