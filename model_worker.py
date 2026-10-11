@@ -23,7 +23,11 @@ except ImportError:
 except Exception as e:
     print(f"Warning: Failed to apply torchvision fix: {e}")
 
-from hy3dshape import Hunyuan3DDiTFlowMatchingPipeline
+from hy3dshape import (
+    DegenerateFaceRemover,
+    FloaterRemover,
+    Hunyuan3DDiTFlowMatchingPipeline,
+)
 from hy3dshape.rembg import BackgroundRemover
 from hy3dshape.utils import logger
 
@@ -109,6 +113,9 @@ class ModelWorker:
             self.pipeline.enable_flashvdm(mc_algo=mc_algo)
         if self.compile:
             self.pipeline.compile()
+
+        self.floater_remover = FloaterRemover()
+        self.degenerate_face_remover = DegenerateFaceRemover()
             
         # Shape-only requests are the default for the segmentation UI. Load the
         # paint module itself lazily so bpy is not required at API startup.
@@ -182,6 +189,14 @@ class ModelWorker:
         except Exception as e:
             logger.error(f"Shape generation failed: {e}")
             raise ValueError(f"Failed to generate 3D mesh: {str(e)}")
+
+        # Match the official Gradio export path: remove small disconnected
+        # components and degenerate faces before writing the final mesh.
+        try:
+            mesh = self.floater_remover(mesh)
+            mesh = self.degenerate_face_remover(mesh)
+        except Exception as e:
+            logger.warning(f"Mesh post-processing skipped: {e}")
 
         output_type = params.get("type", "obj").lower()
         supported_types = {"obj", "glb", "ply", "stl"}
