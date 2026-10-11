@@ -26,11 +26,13 @@ except Exception as e:
 from hy3dshape import Hunyuan3DDiTFlowMatchingPipeline
 from hy3dshape.rembg import BackgroundRemover
 from hy3dshape.utils import logger
-from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
-from hy3dpaint.convert_utils import create_glb_with_pbr_materials
 
 
 def quick_convert_with_obj2gltf(obj_path: str, glb_path: str):
+    # Import paint-only dependencies here so shape-only API startup does not
+    # require Blender's Python module (bpy).
+    from hy3dpaint.convert_utils import create_glb_with_pbr_materials
+
     textures = {
         'albedo': obj_path.replace('.obj', '.jpg'),
         'metallic': obj_path.replace('.obj', '_metallic.jpg'),
@@ -108,16 +110,8 @@ class ModelWorker:
         if self.compile:
             self.pipeline.compile()
             
-        # Initialize texture generation pipeline (matching demo.py)
-        max_num_view = 6  # can be 6 to 9
-        resolution = 512  # can be 768 or 512
-        conf = Hunyuan3DPaintConfig(max_num_view, resolution)
-        conf.realesrgan_ckpt_path = "hy3dpaint/ckpt/RealESRGAN_x4plus.pth"
-        conf.multiview_cfg_path = "hy3dpaint/cfgs/hunyuan-paint-pbr.yaml"
-        conf.custom_pipeline = "hy3dpaint/hunyuanpaintpbr"
         # Shape-only requests are the default for the segmentation UI. Load the
-        # much heavier paint pipeline lazily only when texture=True is requested.
-        self.paint_config = conf
+        # paint module itself lazily so bpy is not required at API startup.
         self.paint_pipeline = None
         # clean cache in save_dir
         for file in os.listdir(self.save_dir):
@@ -214,7 +208,13 @@ class ModelWorker:
         # Generate textured mesh as obj ( as in demo )
         try:
             if self.paint_pipeline is None:
-                self.paint_pipeline = Hunyuan3DPaintPipeline(self.paint_config)
+                from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
+
+                paint_config = Hunyuan3DPaintConfig(max_num_view=6, resolution=512)
+                paint_config.realesrgan_ckpt_path = "hy3dpaint/ckpt/RealESRGAN_x4plus.pth"
+                paint_config.multiview_cfg_path = "hy3dpaint/cfgs/hunyuan-paint-pbr.yaml"
+                paint_config.custom_pipeline = "hy3dpaint/hunyuanpaintpbr"
+                self.paint_pipeline = Hunyuan3DPaintPipeline(paint_config)
             output_mesh_path_obj = os.path.join(self.save_dir, f'{str(uid)}_texturing.obj')
             textured_path_obj = self.paint_pipeline(
                 mesh_path=initial_save_path,
